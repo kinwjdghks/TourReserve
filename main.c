@@ -3,6 +3,8 @@
 #include <time.h>
 #include <string.h>
 #define SITENUM 100
+
+
 int daysformonth[12] = {31,28,31,30,31,30,31,31,30,31,30,31}; //days for each months
 char* months[12] = {"Jan","Feb","March","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"};
 char* get_date(int days){
@@ -333,7 +335,10 @@ typedef struct PATH
     int cost; // cost of transportation
 }PATH;
 
-void initialize_SITE(SITE* SITES){
+SITE* SITES; //global graph variable for sites and paths.
+PATH** PATHS;
+
+void initialize_SITE(){
     SITES = (SITE*)malloc(sizeof(SITE)*SITENUM);
     /*generate 100 sites*/
     for(int i=0;i<SITENUM;i++){
@@ -353,22 +358,22 @@ void initialize_Hotel(RBtree* root){
     return;
 }
 
-void initialize_PATH(PATH** PATHS,int** IndexMap){ //make a graph containing 100 sites and 300 paths.
+void initialize_PATH(){ //make a graph containing 100 sites and 300 paths.
     
     int i,j;
-    PATHS = (PATH**)calloc(10,sizeof(PATH*));
-    for(i=0;i<10;i++){
-        PATHS[i] = (PATH*)calloc(10,sizeof(SITE));
+    PATHS = (PATH**)calloc(SITENUM,sizeof(PATH*));
+    for(i=0;i<SITENUM;i++){
+        PATHS[i] = (PATH*)calloc(SITENUM,sizeof(SITE));
     }
     /*generate and initialize matrix to 0*/
     
-    IndexMap = (int**)calloc(10,sizeof(int*)); 
+    int** IndexMap = (int**)calloc(10,sizeof(int*)); 
     for(i=0;i<10;i++){
         IndexMap[i] = (int*)calloc(10,sizeof(int));
     }
     int tempArr[SITENUM];
     for(i=0;i<SITENUM;i++){
-        tempArr[i] = rand()%100+1;
+        tempArr[i] = rand()%100;
         for(j=0;j<i;j++){
             if(tempArr[i] == tempArr[j]) i--;
         }
@@ -382,21 +387,20 @@ void initialize_PATH(PATH** PATHS,int** IndexMap){ //make a graph containing 100
     /*set IndexMap for random SITE and PATH making*/
     /*now, generate (almost) random 300 paths*/
     
-    /*1. Make 90 paths which connect each (i)th row of IndexMap linearly */
+    /*1. Make 100 paths which connect each (i)th row of IndexMap linearly */
     for(i=0;i<10;i++){
-        for(j=0;j<9;j++){
-            PATHS[IndexMap[i][j]][IndexMap[i][j+1]].connected = 1;
-            PATHS[IndexMap[i][j+1]][IndexMap[i][j]].connected = 1;
+        for(j=0;j<10;j++){
+            PATHS[IndexMap[i][j]][IndexMap[i][(j+1)%10]].connected = 1;
+            PATHS[IndexMap[i][(j+1)%10]][IndexMap[i][j]].connected = 1;
         }
     }
-    /*2. Between each (i)th and (i+1) row, make random 21 paths. */
+    /*2. Between each (i)th and (i+1) row, make random 20 paths. */
     int a,b;
     for(i=0;i<10;i++){
-        for(j=0;j<21;j++){
+        for(j=0;j<20;j++){
             a = rand()%10;
             b = rand()%10;
-            if(PATHS[IndexMap[i%10][a]][IndexMap[(i+1)%10][b]].connected == 1
-            || PATHS[IndexMap[(i+1)%10][b]][IndexMap[i%10][a]].connected == 1){
+            if(PATHS[IndexMap[i%10][a]][IndexMap[(i+1)%10][b]].connected == 1){
                 j--;
             }
             PATHS[IndexMap[i%10][a]][IndexMap[(i+1)%10][b]].connected = 1;
@@ -406,10 +410,10 @@ void initialize_PATH(PATH** PATHS,int** IndexMap){ //make a graph containing 100
     return;
 }
 
-void printpath(PATH** paths){
+void printpath(){
     for(int i=0;i<10;i++){
         for(int j=0;j<10;j++){
-            printf("%d ",paths[i][j].connected);
+            printf("%d ",PATHS[i][j].connected);
         }
         printf("\n");
     }
@@ -419,7 +423,12 @@ void printpath(PATH** paths){
 
 SITE* find_next_dest(SITE* depart,int budget,int leftDays){ 
     //from site(depart), find candidates for next tour site considering leftover budget and dates.
-    SITE* Next;
+    int i;
+    for(i=0;i<SITENUM;i++){
+        if(PATHS[depart->id][i].connected == 1){
+
+        }
+    }
 
 
 
@@ -429,16 +438,14 @@ SITE* find_next_dest(SITE* depart,int budget,int leftDays){
 
 
 
-SITE* SITES; //global graph variable for sites and paths.
-int** IdxMap;
-PATH** PATHS;
+
 
 int main(void){
     srand((unsigned int)time(NULL));
     // int* tourPath; //sequence of sites during tour.
     // HOTEL* tourHotel; //reserved hotel for each days. 
-    // initialize_SITE(SITES); //initialize sites and paths.
-    initialize_PATH(PATHS,IdxMap);
-    printpath(PATHS);
+    initialize_SITE(); //initialize sites and paths.
+    initialize_PATH();
+    
     return 0;
 }
