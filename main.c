@@ -28,7 +28,7 @@ char* get_StrDate(int days){
     date = (char*)malloc(sizeof(char) * 10);
     
     // Format the date string
-    snprintf(date, 10, "%s %d%s", months[month], days, (days > 3 && days < 21) ? "th" : (days % 10 == 1) ? "st" : (days % 10 == 2) ? "nd" : (days % 10 == 3) ? "rd" : "th");
+    snprintf(date, 10, "%s %d%s", months[month], days, (days > 3 ) ? "th" : (days == 1) ? "st" : (days == 2) ? "nd" : (days == 3) ? "rd" : "th");
     
     return date;
 }
@@ -89,12 +89,12 @@ typedef struct TOUR{ //linked list to store reservated sites
 }TOUR;
 
 
-int searchHistory(TOUR* head,int id){ //search if SITE[id] has already been reserved.
+TOUR* searchHistory(TOUR* head,int id){ //search if SITE[id] has already been reserved.
     while(head != NULL){
-        if(head->cursite->id == id) return 1; //already reserved.
+        if(head->cursite->id == id) return head; //already reserved.
         head = head->nextsite;
     }
-    return 0;
+    return NULL;
 }
 
 typedef struct RESV{ //reservation type which contains customer id and tour information.
@@ -654,13 +654,6 @@ RESV* successorRESV(RBRESV* T, RESV* target){ //return val otherwise return succ
     }
 }
 
-// RESV* BSTsearchprimeRESV(RBRESV* T, int id){ //return val otherwise return successor(val)
-//     RESV* target = BSTsearchRESV(T,id);
-//     if(target->id >= id) return target;
-//     else return successorRESV(T,target);
-    
-// }
-
 void RBdeleteRESV(RBRESV* T,int id){
     RESV* target = BSTsearchRESV(T,id);
     if(target == T->NIL) return;
@@ -760,7 +753,7 @@ void initialize_PATH(){ //make a graph containing 100 sites and 300 paths.
             b = IndexMap[i][(j+1)%10];
             PATHS[a][b].connected = 1;
             PATHS[a][b].type = rand()%4;
-            PATHS[a][b].cost = 2500*(PATHS[a][b].type)*(PATHS[a][b].type)+(PATHS[a][b].type+1)*rand()%4000+2000;
+            PATHS[a][b].cost = 2500*(PATHS[a][b].type)*(PATHS[a][b].type)+(PATHS[a][b].type+1)*(rand()%4000)+2000;
             PATHS[b][a].connected = 1;
             PATHS[b][a].type = PATHS[a][b].type;
             PATHS[b][a].cost = PATHS[a][b].cost;
@@ -777,7 +770,7 @@ void initialize_PATH(){ //make a graph containing 100 sites and 300 paths.
             }
             PATHS[a][b].connected = 1;
             PATHS[a][b].type = rand()%4;
-            PATHS[a][b].cost = 2500*(PATHS[a][b].type)*(PATHS[a][b].type)+(PATHS[a][b].type+1)*rand()%4000+2000;
+            PATHS[a][b].cost = 2500*(PATHS[a][b].type)*(PATHS[a][b].type)+(PATHS[a][b].type+1)*(rand()%4000)+2000;
             PATHS[b][a].connected = 1;
             PATHS[b][a].type = PATHS[a][b].type;
             PATHS[b][a].cost = PATHS[a][b].cost;
@@ -785,10 +778,10 @@ void initialize_PATH(){ //make a graph containing 100 sites and 300 paths.
     }
     return;
 }
-void printpath(){
+void printcost(){
     for(int i=0;i<SITENUM;i++){
         for(int j=0;j<SITENUM;j++){
-            printf("%d",PATHS[i][j].connected);
+            printf("%d ",PATHS[i][j].cost);
         }
         printf("\n");
     }
@@ -861,7 +854,7 @@ int find_next_dest(RESV* resv){
     }
     else{ //not the first destination
         for(i=0;i<SITENUM;i++){
-            if(PATHS[resv->lastsite->id][i].connected == 1 && searchHistory(resv->tour,i) == 0){
+            if(PATHS[resv->lastsite->id][i].connected == 1 && searchHistory(resv->tour,i) == NULL){
                 
                 if(resv->budget >= PATHS[resv->lastsite->id][i].cost + SITES[i].cost + SITES[i].minHotelcost*SITES[i].duration
                 && resv->leftdays >= SITES[i].duration){ //need enough budget and left days to reserve!
@@ -943,6 +936,86 @@ void show_reservation(RESV* resv){
     return;
 }
 
+
+void change_hotel(RESV* resv){
+    Hotel** hotellist = (Hotel**)calloc(100,sizeof(Hotel*));
+    Hotel* userChoice;
+    int i,validInput,siteid;
+    char answer;
+    int intChoice;
+    int hotelnum = -1; //index of last list element
+
+    TOUR* iter;
+    show_reservation(resv);
+        printf("Enter the site name you would like to change hotel:");
+    do{
+        clearInputBuffer();
+        validInput = scanf("%d",&siteid);
+        iter = searchHistory(resv->tour,siteid);
+        if(iter == NULL){
+            printf("The site does not exist. Try again: ");
+            continue;
+        }
+        else
+            break;
+    }while(1);
+
+    Hotel* prevHotel = iter->hotel;
+    inorderFilterRBHotel(iter->cursite->Hotel,iter->cursite->Hotel->root,resv->budget+prevHotel->cost,iter->cursite->duration,&hotelnum,hotellist);
+    
+    printf("There are options for the hotels you could change.\n");
+    printf("-------------------------------\n");
+    for(i=0;i<=hotelnum;i++){
+        printf("%02d. Hotel %02d:  %d won * %d night(s) = %d won.\n",i+1,hotellist[i]->id,hotellist[i]->cost,iter->cursite->duration,hotellist[i]->cost*iter->cursite->duration);
+    }
+    printf("\n-------------------------------\n");
+    printf("Press choose hotel and enter hotel number (or press -1 to cancel): ");
+    
+    do{
+        clearInputBuffer();
+        validInput = scanf("%d",&intChoice);
+        if(validInput != 1){
+            printf("Please enter numeric input. Try again: ");
+            continue;
+        }
+        else if(intChoice == -1){
+            printf("Canceled. Returning to main...\n");
+            return;
+        }
+        for(i=0;i<=hotelnum;i++){
+            if(hotellist[i]->id == intChoice){
+                userChoice = hotellist[i];
+                goto end;
+            }
+        }
+        printf("Entered hotel doesn't exist. Try again: ");
+        continue;
+    }while(1);
+    end:
+    printf("\nAre you sure about the change? (Y/N):");
+    do{
+        clearInputBuffer();
+        validInput = scanf("%c",&answer);
+        if(validInput != 1 || !(answer == 'Y' || answer == 'N')){
+            printf("\nPlease enter again(Y/N): ");
+            continue;
+        }
+        else break;
+    }while(1);
+    if(answer == 'Y'){
+        resv->budget += prevHotel->cost - userChoice->cost;
+        iter->hotel = userChoice;
+        printf("\nHotel succesfully changed! Thank you. Returning to Main...\n");
+    }
+    else{
+        printf("Canceled. Returning to main...\n");
+        return;
+    }
+    free(hotellist);
+    return;
+}
+
+
 int get_confirmation(RESV* resv,int option){
     char answer;
     int validInput;
@@ -955,13 +1028,15 @@ int get_confirmation(RESV* resv,int option){
     else if(option == 2) //cancel mode
         printf("Do you really want to cancel this reservation? (Y/N): ");
 
-    clearInputBuffer();
-    validInput = scanf("%c",&answer);
-    while(validInput != 1 || !(answer == 'Y' || answer == 'N')){
-        printf("Please enter again(Y/N): ");
+    do{
         clearInputBuffer();
         validInput = scanf("%c",&answer);
-    }
+        if(validInput != 1 || !(answer == 'Y' || answer == 'N')){
+            printf("Please enter again(Y/N): ");
+            continue;
+        }
+        else break;
+    }while(1);
     return answer == 'Y' ? 1 : 0;
 }
 
@@ -1104,6 +1179,8 @@ void free_all(){
     return;
 }
 
+
+
 int main(void){
     int option,validOption,ID;
     char buffer;
@@ -1112,6 +1189,7 @@ int main(void){
     RBresv = generateRBRESV();
     initialize_SITE(); //initialize sites and paths.
     initialize_PATH();
+    printcost();
     printf("\n\n** Welcome to our tour reservation system! **");
    
    do{      
@@ -1121,7 +1199,8 @@ int main(void){
         printf("2. View reservation list.\n");
         printf("3. View my reservation.\n");
         printf("4. Cancel reservation.\n");
-        printf("5. Quit.\n");
+        printf("5. Change Hotel reservation.\n");
+        printf("6. Exit.\n");
         printf("---------------------------\n");
         printf("Select Option: ");
         validOption = scanf("%d",&option);
@@ -1154,9 +1233,14 @@ int main(void){
                 }
                 break;
             case 5:
+                ID = seek_reservation();
+                if(ID != -1)
+                    change_hotel(BSTsearchRESV(RBresv,ID));
+                break;
+            case 6:
                 break;
         }
-    }while(option != 5);
+    }while(option != 6);
     printf("Thank you for using our Tour reservation system.\n");
 
     free_all();
